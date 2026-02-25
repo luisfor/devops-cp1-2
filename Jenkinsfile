@@ -61,13 +61,13 @@ pipeline {
                 echo "=== OBTENIENDO MÉTRICAS DE SEGURIDAD (BANDIT) ==="
                 sh 'pip3 install bandit'
                 catchError(buildResult: 'SUCCESS', stageResult: 'FAILURE') {
-                    sh 'python3 -m bandit -r app/ -f custom --msg-template "{abspath}:{line}: {severity}: {test_id}: {msg}" -o bandit_report.txt || true'
+                    sh 'python3 -m bandit -r app/ -f custom --msg-template "{abspath}:{line}:1: {severity}: {test_id}: {msg}" -o bandit_report.txt || true'
                 }
             }
             post {
                 always {
                     recordIssues(
-                        tools: [bandit(pattern: 'bandit_report.txt')],
+                        tools: [flake8(pattern: 'bandit_report.txt', id: 'bandit', name: 'Bandit')],
                         qualityGates: [[threshold: 4, type: 'TOTAL', unstable: false], [threshold: 2, type: 'TOTAL', unstable: true]]
                     )
                 }
