@@ -20,6 +20,10 @@ fi
 # Hemos asumido que el test plan ya está configurado así en test/jmeter/flask.jmx 
 # (como dice la guía, debe tener un test-plan así)
 
+# Limpiar reportes anteriores para que JMeter no falle diciendo que el directorio no está vacío
+rm -rf test-reports/jmeter-html-report
+rm -f test-reports/jmeter-results.jtl
+
 jmeter -n -t test/jmeter/flask.jmx -l test-reports/jmeter-results.jtl -e -o test-reports/jmeter-html-report
 RESULT=$?
 
