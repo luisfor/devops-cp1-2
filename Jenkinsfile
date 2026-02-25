@@ -42,7 +42,9 @@ pipeline {
             steps {
                 echo "=== OBTENIENDO MÉTRICAS DE CÓDIGO ESTÁTICO (FLAKE8) ==="
                 sh 'pip3 install flake8'
-                sh 'flake8 app/ --format=default > flake8_report.txt || true'
+                catchError(buildResult: 'SUCCESS', stageResult: 'FAILURE') {
+                    sh 'python3 -m flake8 app/ --format=default > flake8_report.txt || true'
+                }
             }
             post {
                 always {
@@ -59,7 +61,9 @@ pipeline {
             steps {
                 echo "=== OBTENIENDO MÉTRICAS DE SEGURIDAD (BANDIT) ==="
                 sh 'pip3 install bandit'
-                sh 'bandit -r app/ -f custom --msg-template "{abspath}:{line}: {severity}: {test_id}: {msg}" -o bandit_report.txt || true'
+                catchError(buildResult: 'SUCCESS', stageResult: 'FAILURE') {
+                    sh 'python3 -m bandit -r app/ -f custom --msg-template "{abspath}:{line}: {severity}: {test_id}: {msg}" -o bandit_report.txt || true'
+                }
             }
             post {
                 always {
@@ -76,8 +80,10 @@ pipeline {
             steps {
                 echo "=== OBTENIENDO MÉTRICAS DE COBERTURA ==="
                 sh 'pip3 install coverage'
-                sh 'coverage run -m pytest test/unit'
-                sh 'coverage xml -o coverage.xml'
+                catchError(buildResult: 'SUCCESS', stageResult: 'FAILURE') {
+                    sh 'python3 -m coverage run -m pytest test/unit'
+                    sh 'python3 -m coverage xml -o coverage.xml'
+                }
             }
             post {
                 always {
