@@ -50,8 +50,7 @@ pipeline {
                 always {
                     recordIssues(
                         tools: [flake8(pattern: 'flake8_report.txt')],
-                        unstableTotalAll: 8,
-                        failedTotalAll: 10
+                        qualityGates: [[threshold: 10, type: 'TOTAL', unstable: false], [threshold: 8, type: 'TOTAL', unstable: true]]
                     )
                 }
             }
@@ -69,8 +68,7 @@ pipeline {
                 always {
                     recordIssues(
                         tools: [bandit(pattern: 'bandit_report.txt')],
-                        unstableTotalAll: 2,
-                        failedTotalAll: 4
+                        qualityGates: [[threshold: 4, type: 'TOTAL', unstable: false], [threshold: 2, type: 'TOTAL', unstable: true]]
                     )
                 }
             }
