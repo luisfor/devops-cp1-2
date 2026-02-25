@@ -1,0 +1,112 @@
+pipeline {
+    agent none // Al usar paralelo, el agente general es 'none' y se especifica por etapa
+
+    options {
+        timeout(time: 15, unit: 'MINUTES')
+        disableConcurrentBuilds()
+    }
+
+    stages {
+        stage('Get Code') {
+            agent any
+            steps {
+                echo "=== OBTENIENDO CÓDIGO FUENTE ==="
+                checkout scm
+                // Guardamos el código fuente (stash) para que los agentes paralelos puedan descargarlo y usarlo
+                stash includes: '**', name: 'source-code'
+            }
+        }
+
+        stage('Pruebas Paralelas') {
+            parallel {
+                stage('Unit & Coverage') {
+                    agent any
+                    steps {
+                        // Recuperamos el código (unstash)
+                        unstash 'source-code'
+                        echo "=== EJECUTANDO UNIT Y COBERTURA EN PARALELO ==="
+                        sh "whoami && hostname && echo \${WORKSPACE}"
+                        
+                        sh 'pip3 install -r requirements.txt'
+                        catchError(buildResult: 'SUCCESS', stageResult: 'FAILURE') {
+                            sh 'python3 -m coverage run -m pytest test/unit --junitxml=test-reports/unit-results.xml'
+                            sh 'python3 -m coverage xml -o coverage.xml'
+                        }
+                    }
+                    post {
+                        always {
+                            junit 'test-reports/unit-results.xml'
+                            recordCoverage(tools: [[parser: 'COBERTURA', pattern: 'coverage.xml']])
+                            // Limpieza del nodo tras la ejecución
+                            cleanWs()
+                        }
+                    }
+                }
+
+                stage('Rest Integration') {
+                    agent any
+                    steps {
+                        unstash 'source-code'
+                        echo "=== EJECUTANDO PRUEBAS DE INTEGRACIÓN EN PARALELO ==="
+                        sh "whoami && hostname && echo \${WORKSPACE}"
+                        
+                        sh 'pip3 install -r requirements.txt'
+                        catchError(buildResult: 'SUCCESS', stageResult: 'FAILURE') {
+                            sh './run_rest.sh'
+                        }
+                    }
+                    post {
+                        always {
+                            junit 'test-reports/rest-results.xml'
+                            cleanWs()
+                        }
+                    }
+                }
+
+                stage('Quality Gates (Static & Security)') {
+                    agent any
+                    steps {
+                        unstash 'source-code'
+                        echo "=== ANALIZANDO CÓDIGO (FLAKE8 Y BANDIT) ==="
+                        sh "whoami && hostname && echo \${WORKSPACE}"
+                        
+                        sh 'pip3 install flake8 bandit'
+                        catchError(buildResult: 'SUCCESS', stageResult: 'FAILURE') {
+                            sh 'python3 -m flake8 app/ --format=default > flake8_report.txt || true'
+                            sh 'python3 -m bandit -r app/ -f custom --msg-template "{abspath}:{line}:1: {severity}: {test_id}: {msg}" -o bandit_report.txt || true'
+                        }
+                    }
+                    post {
+                        always {
+                            recordIssues(
+                                tools: [flake8(pattern: 'flake8_report.txt')],
+                                qualityGates: [[threshold: 10, type: 'TOTAL', unstable: false], [threshold: 8, type: 'TOTAL', unstable: true]]
+                            )
+                            recordIssues(
+                                tools: [flake8(pattern: 'bandit_report.txt', id: 'bandit', name: 'Bandit')],
+                                qualityGates: [[threshold: 4, type: 'TOTAL', unstable: false], [threshold: 2, type: 'TOTAL', unstable: true]]
+                            )
+                            cleanWs()
+                        }
+                    }
+                }
+            }
+        }
+
+        stage('Performance Test') {
+            agent any // Performance suele ir al final, cuando el entorno está validado
+            steps {
+                unstash 'source-code'
+                echo "=== PRUEBAS DE CARGA JMETER (BOTELLA DE CUELLO / FINAL) ==="
+                sh "whoami && hostname && echo \${WORKSPACE}"
+                sh './run_performance.sh'
+            }
+            post {
+                always {
+                    perfReport errorFailedThreshold: 0, errorUnstableThreshold: 0, sourceDataFiles: 'test-reports/jmeter-results.jtl'
+                    cleanWs()
+                }
+            }
+        }
+    }
+}
