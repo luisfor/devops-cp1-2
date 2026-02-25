@@ -1,4 +1,11 @@
-# Caso Práctico 1.2 - CI/CD Avanzado y DevOps
+# Caso Práctico 1.2 - CI Avanzado, Agentes y Cobertura (DevOps)
+
+## Contexto y Origen del Código Base (CP1.1)
+El código fuente utilizado en esta práctica consiste en una **API REST (Microservicio) desarrollada en Python con Flask**, capaz de realizar operaciones matemáticas básicas (Suma, Resta, Multiplicación, División).
+
+**Es fundamental aclarar que este código base (la lógica de la calculadora) fue heredado del ejercicio previo del máster (Caso Práctico 1.1).** El objetivo académico de este CP1.2 **no** es la programación de la aplicación en sí misma, sino la implementación de una arquitectura DevOps madura a su alrededor. Por ello, el trabajo documentado a continuación se centra de forma exclusiva en la creación de pipelines de Integración Continua (CI), el manejo de Nodos/Agentes paralelos en Jenkins, el análisis de código estático/dinámico y garantizar el 100% de cobertura en las pruebas unitarias.
+
+---
 
 Este repositorio contiene la solución completa al Caso Práctico 1.2, enfocado en la implementación de un pipeline avanzado de Integración Continua (CI) usando Jenkins, Python, y múltiples herramientas de análisis estático, seguridad, cobertura y rendimiento.
 
