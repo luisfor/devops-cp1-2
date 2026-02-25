@@ -85,15 +85,7 @@ pipeline {
             }
             post {
                 always {
-                    cobertura autoUpdateHealth: false,
-                              autoUpdateStability: false,
-                              coberturaReportFile: 'coverage.xml',
-                              failUnhealthy: false,
-                              failUnstable: false,
-                              maxNumberOfBuilds: 0,
-                              onlyStable: false,
-                              sourceEncoding: 'ASCII',
-                              zoomCoverageChart: false
+                    recordCoverage(tools: [[parser: 'COBERTURA', pattern: 'coverage.xml']])
                 }
             }
         }
