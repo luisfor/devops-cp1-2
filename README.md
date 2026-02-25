@@ -28,3 +28,21 @@ A continuación, la explicación paso a paso de lo configurado en el pipeline:
 
 ### Resultado del Reto 1
 El Pipeline finaliza probando todo con éxito. Queda en estado **UNSTABLE** (amarillo) como comportamiento deseado comprobando el sistema de Quality Gates, ya que Flake8 detona 9 errores de estilo superando el límite inestable (8) sin llegar al fallo total (10). Ninguna etapa rompe violentamente la ejecución y todos los gráficos poblados son visibles tras cada construcción de Jenkins.
+
+## Reto 2: Distribución de Agentes (Completado)
+
+El segundo objetivo consistió en optimizar el tiempo de ejecución mediante la paralelización de etapas que no dependen entre sí, así como comprender en detalle el sistema de gestión de cargas de trabajo de Jenkins usando múltiples ejecutores.
+
+### 1. Creación del Pipeline de Agentes
+Se redactó el archivo `Jenkinsfile_agentes` el cual reescribió el flujo secuencial usando la sintaxis de `parallel {}`. En esta configuración:
+*   El nivel superior define `agent none` para exigir que cada etapa defina su contexto.
+*   En la etapa `Get Code`, usamos `stash` (empaquetado del código fuente temporal en el maestro).
+*   Se crearon tres ejes paralelos: **Unit & Coverage**, **Rest Integration** y **Quality Gates (Static & Security)**.
+*   Cada eje concurrente debe usar `unstash` para descargar el repositorio fuente extraído.
+*   Se inyectó el comando obligatoriamente exigido (`whoami`, `hostname`, y `echo $WORKSPACE`) al inicio de cada proceso, para documentar el nodo donde se ejecutaron.
+*   Finalmente, la fase **Performance** ejecuta después tras converger el éxito parcial.
+
+### 2. Emulación de Límite de Ejecutores (Cuello de Botella)
+En la demostración técnica final:
+*   Se probó primero el flujo paralelo en el nodo principal (Master) provisto de **número de ejecutores (executors) múltiples**, evidenciando cómo simultáneamente se lanzan las tareas agilizando tiempos de CI.
+*   Luego, configurando Jenkins para asignar **1 único ejecutor**, se demostró cómo las etapas declaradas en `parallel` efectivamente intentan ejecutarse pero la plataforma las ubica en **cola de espera (Queue)** provocando de nuevo un comportamiento similar al secuencial dependiente, siendo esta limitante la principal razón práctica por la que contar con múltiples Virtual Machines / contenedores Docker esclavos incrementa dramáticamente el potencial CI Empresarial.
