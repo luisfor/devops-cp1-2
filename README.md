@@ -46,3 +46,12 @@ Se redactó el archivo `Jenkinsfile_agentes` el cual reescribió el flujo secuen
 En la demostración técnica final:
 *   Se probó primero el flujo paralelo en el nodo principal (Master) provisto de **número de ejecutores (executors) múltiples**, evidenciando cómo simultáneamente se lanzan las tareas agilizando tiempos de CI.
 *   Luego, configurando Jenkins para asignar **1 único ejecutor**, se demostró cómo las etapas declaradas en `parallel` efectivamente intentan ejecutarse pero la plataforma las ubica en **cola de espera (Queue)** provocando de nuevo un comportamiento similar al secuencial dependiente, siendo esta limitante la principal razón práctica por la que contar con múltiples Virtual Machines / contenedores Docker esclavos incrementa dramáticamente el potencial CI Empresarial.
+
+## Reto 3: Mejora de Cobertura (Completado)
+
+El último reto exigía escalar del 43% original (con fallos lógicos no testeados) a un **100% absoluto** de cobertura de código, limitándonos a modificar exclusivamente los tests unitarios (`calc_test.py`) sin alterar el código de desarrollo ni usar `pragma: no cover`.
+
+### Explicación del problema y solución
+*   **El Problema:** Al observar el reporte de cobertura interactivo, notamos que las últimas líneas de las funciones `divide()` y `check_types()` dentro de `app/calc.py` nunca se iluminaban de verde. El código fuente original sí contenía protecciones (`raise TypeError`) para "División por cero" y para "Tipos de datos inválidos (Strings, None)", pero la suite original de pruebas unitarias provista nunca ponía a prueba estos fallos, por ende, el porcentaje global se desplomaba.
+*   **La Solución:** Mediante una nueva rama llamada `feature_fix_coverage`, redactamos tres lotes de pruebas asertivas nuevas (`test_divide_method_fails_with_division_by_zero` y `test_check_types_fails_with_invalid_types`) inyectando conscientemente ceros, strings nulos y objetos irreconocibles para forzar la detonación de dichos errores y así recorrer el 100% de la lógica interna de `app/calc.py`.
+*   **Resultado:** Tras la compilación paralela, el plugin `Code Coverage API` demostró matemáticamente un incremento a 100% en *Line Coverage* y *Branch Coverage* en el sumario estricto de archivos filtrados de la aplicación.
