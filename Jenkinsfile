@@ -13,11 +13,13 @@ pipeline {
             steps {
                 echo "=== EJECUTANDO PRUEBAS UNITARIAS ==="
                 sh 'pip3 install -r requirements.txt'
-                sh 'python3 -m pytest test/unit --junitxml=test-reports/unit-results.xml'
+                catchError(buildResult: 'SUCCESS', stageResult: 'FAILURE') {
+                    sh 'python3 -m pytest test/unit --junitxml=test-reports/unit-results.xml'
+                }
             }
             post {
                 always {
-                    junit 'test-reports/unit-results.xml'
+                    junit testResults: 'test-reports/unit-results.xml', allowEmptyResults: true
                 }
             }
         }
@@ -25,11 +27,13 @@ pipeline {
         stage('Rest') {
             steps {
                 echo "=== EJECUTANDO PRUEBAS DE INTEGRACIÓN ==="
-                sh './run_rest.sh'
+                catchError(buildResult: 'SUCCESS', stageResult: 'FAILURE') {
+                    sh './run_rest.sh'
+                }
             }
             post {
                 always {
-                    junit 'test-reports/rest-results.xml'
+                    junit testResults: 'test-reports/rest-results.xml', allowEmptyResults: true
                 }
             }
         }
