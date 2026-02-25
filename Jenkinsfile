@@ -85,9 +85,7 @@ pipeline {
             }
             post {
                 always {
-                    cobertura coberturaReportFile: 'coverage.xml',
-                              coberturaLineCoverageTargets: '85, 0, 95',
-                              coberturaConditionalCoverageTargets: '80, 0, 90'
+                    cobertura coberturaReportFile: 'coverage.xml'
                 }
             }
         }

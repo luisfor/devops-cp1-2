@@ -3,7 +3,7 @@ export PATH="/opt/homebrew/bin:$PATH"
 echo "=== INICIANDO FLASK PARA JMETER ==="
 
 export FLASK_APP=app/api.py
-python3 -m flask run -p 5001 > flask.log 2>&1 &
+python3 -m flask run -p 5000 > flask.log 2>&1 &
 FPID=$!
 
 sleep 4 # Dar tiempo a que arranque
