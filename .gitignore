@@ -1,0 +1,6 @@
+__pycache__/
+*.pyc
+.coverage
+*.pdf
+*.docx
+jenkins-cli.jar
