@@ -22,14 +22,11 @@ El primer objetivo logrado fue la configuración del `Jenkinsfile` principal que
 
 A continuación, la explicación paso a paso de lo configurado en el pipeline:
 
-*   **Get Code:** Jenkins descarga el código directamente desde GitHub en cada ejecución utilizando la directiva `checkout scm`.
-*   **Unit (Pruebas Unitarias):** En esta etapa se instalan las dependencias definidas en `requirements.txt`. El script levanta un entorno con `pytest` y evalúa únicamente la lógica matemática en `test/unit`. Guarda un reporte formato XML JUnit.
-*   **Rest (Pruebas de Integración):** Inicia la API y su mock usando `run_rest.sh`. Lanza peticiones de integración para verificar la comunicación. De igual modo que la anterior, almacena el resultado en XML JUnit.
-*   **Static (Análisis de Código Estático):** Empleamos **Flake8** para evaluar la calidad y formato del código en la carpeta `app/`. Mediante el plugin *Warnings Next Generation Plugin (Warnings-NG)* de Jenkins, interpretamos la salida de Flake8.
-    *   *Configuración de umbrales:* Se estipuló que si hay 8 hallazgos o más, la build sea "Inestable" (Unstable), y 10 o más sea "Failure" (roja). Con 9 hallazgos actuales, la build pasa a estado Inestable pero no cancela la ejecución.
-*   **Security Test (Bandit):** Usamos la herramienta **Bandit** para auditar posibles vulnerabilidades. Para que Warnings-NG pudiera interpretarla, definimos un formato idéntico al de Flake8 pasándolo como argumento a Bandit.
-    *   *Configuración de umbrales:* El límite inestable se configuró en 2 errores, y fallido en 4.
-*   **Coverage (Cobertura de Código):** Inicialmente, el plugin antiguo de Jenkins para Cobertura lanzaba errores críticos de compatibilidad con Java (`hudson.util.IOException2`). Se resolvió utilizando el plugin moderno **Code Coverage API plugin**, llamándolo mediante la instrucción `recordCoverage`. Esto lee con éxito el reporte XML generado previamente por la directiva `coverage`.
+- **Unit (Pruebas Unitarias y Cobertura):** Siguiendo mejores prácticas de eficiencia, esta etapa ahora utiliza `python3 -m coverage run -m pytest`. Esto permite ejecutar los tests y recolectar datos de cobertura en un solo paso, evitando duplicidad de ejecuciones. Se ha eliminado la instalación de dependencias vía `pip` dentro del pipeline para favorecer el uso de agentes pre-configurados.
+- **Rest (Pruebas de Integración):** Inicia la API y su mock usando `run_rest.sh`. Lanza peticiones de integración para verificar la comunicación. Almacena el resultado en XML JUnit.
+- **Static (Análisis de Código Estático):** Empleamos **Flake8** para evaluar la calidad y formato del código. Se eliminó la instalación ad-hoc de la herramienta, asumiendo su presencia en el nodo.
+- **Security Test (Bandit):** Usamos **Bandit** para auditar vulnerabilidades. Al igual que en las etapas anteriores, se eliminó la instalación manual dentro del script para optimizar el tiempo de build.
+- **Coverage (Reporte):** La etapa de cobertura se ha simplificado para actuar únicamente como generador de reporte (`coverage xml`). Ya no vuelve a lanzar los tests, sino que consume los datos generados en la etapa de Unit, garantizando que las pruebas solo se ejecuten una vez como solicitó el tutor.
 *   **Performance (Rendimiento):** En la última etapa, arranca Flask en el puerto `5000` (corrigiendo el puerto original en los scripts base para alinear a JMeter). JMeter lanza un plan de 20 hilos realizando múltiples llamadas.
     *   *Solución de error fundamental:* Se configuró el script `run_performance.sh` para eliminar activamente los reportes CSV y carpetas HTML anteriores (`rm -rf test-reports/jmeter-html-report`) garantizando que JMeter no explote por "Directorios no vacíos" en ejecuciones continuas.
 
@@ -42,12 +39,12 @@ El segundo objetivo consistió en optimizar el tiempo de ejecución mediante la 
 
 ### 1. Creación del Pipeline de Agentes
 Se redactó el archivo `Jenkinsfile_agentes` el cual reescribió el flujo secuencial usando la sintaxis de `parallel {}`. En esta configuración:
-*   El nivel superior define `agent none` para exigir que cada etapa defina su contexto.
-*   En la etapa `Get Code`, usamos `stash` (empaquetado del código fuente temporal en el maestro).
-*   Se crearon tres ejes paralelos: **Unit & Coverage**, **Rest Integration** y **Quality Gates (Static & Security)**.
-*   Cada eje concurrente debe usar `unstash` para descargar el repositorio fuente extraído.
-*   Se inyectó el comando obligatoriamente exigido (`whoami`, `hostname`, y `echo $WORKSPACE`) al inicio de cada proceso, para documentar el nodo donde se ejecutaron.
-*   Finalmente, la fase **Performance** ejecuta después tras converger el éxito parcial.
+- El nivel superior define `agent none` para exigir que cada etapa defina su contexto.
+- En la etapa `Get Code`, usamos `stash` (empaquetado del código fuente temporal en el maestro).
+- Se crearon ejes paralelos diferenciados: **Unit**, **Coverage**, **Rest Integration** y **Quality Gates (Static & Security)**.
+- Se separaron las etapas de **Unit** y **Coverage** (anteriormente unificadas) para permitir el uso de *Quality Gates* independientes y mejorar la visibilidad del flujo de CI en la interfaz de Jenkins.
+- Cada eje concurrente debe usar `unstash` para descargar el repositorio fuente extraído. Los datos de cobertura se pasan entre nodos mediante `stash` de los archivos `.coverage`.
+- Se eliminaron las instalaciones manuales de software (`pip install`) para cumplir con la norma de no descargar dependencias externas durante el pipeline.
 
 ### 2. Emulación de Límite de Ejecutores (Cuello de Botella)
 En la demostración técnica final:
@@ -62,3 +59,13 @@ El último reto exigía escalar del 43% original (con fallos lógicos no testead
 *   **El Problema:** Al observar el reporte de cobertura interactivo, notamos que las últimas líneas de las funciones `divide()` y `check_types()` dentro de `app/calc.py` nunca se iluminaban de verde. El código fuente original sí contenía protecciones (`raise TypeError`) para "División por cero" y para "Tipos de datos inválidos (Strings, None)", pero la suite original de pruebas unitarias provista nunca ponía a prueba estos fallos, por ende, el porcentaje global se desplomaba.
 *   **La Solución (Uso de GitFlow):** Acatando el requisito de no alterar Producción (`master`), creamos una nueva rama aislada llamada `feature_fix_coverage`. En ella, redactamos tres lotes de pruebas asertivas nuevas (`test_divide_method_fails_with_division_by_zero` y `test_check_types_fails_with_invalid_types`) inyectando conscientemente ceros, strings nulos y objetos irreconocibles para forzar la detonación de dichos errores y así recorrer el 100% de la lógica interna de `app/calc.py`. Este flujo demuestra la implementación segura del branching para evaluación continua de features.
 *   **Resultado:** Tras la compilación paralela, el plugin `Code Coverage API` demostró matemáticamente un incremento a 100% en *Line Coverage* y *Branch Coverage* en el sumario estricto de archivos filtrados de la aplicación.
+
+---
+
+## Mejores Prácticas de CI/CD Aplicadas (Revisión Final)
+
+Tras la revisión del tutor, el proyecto se ha actualizado para cumplir con estándares industriales de DevOps:
+
+1. **Eficiencia de Pruebas**: Se eliminó la redundancia. Las pruebas unitarias solo se ejecutan una vez, recolectando la cobertura en ese mismo instante.
+2. **Inmutabilidad del Entorno**: Se eliminaron los comandos `pip3 install` del pipeline. Se asume que los agentes/nodos de Jenkins son entornos controlados y pre-configurados con las herramientas necesarias (`pytest`, `flake8`, `bandit`, `coverage`).
+3. **Claridad en el Pipeline Paralelo**: En el Reto 2, se dividieron las etapas para que la monitorización visual sea inmediata y precisa, permitiendo identificar fallos de lógica (`Unit`) independientemente de fallos en métricas (`Coverage`).
