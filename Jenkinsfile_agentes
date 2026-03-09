@@ -19,25 +19,37 @@ pipeline {
 
         stage('Pruebas Paralelas') {
             parallel {
-                stage('Unit & Coverage') {
+                stage('Unit') {
                     agent any
                     steps {
-                        // Recuperamos el código (unstash)
                         unstash 'source-code'
-                        echo "=== EJECUTANDO UNIT Y COBERTURA EN PARALELO ==="
-                        sh "whoami && hostname && echo \${WORKSPACE}"
-                        
-                        sh 'pip3 install -r requirements.txt'
+                        echo "=== EJECUTANDO PRUEBAS UNITARIAS E INDICANDO COBERTURA ==="
                         catchError(buildResult: 'SUCCESS', stageResult: 'FAILURE') {
                             sh 'python3 -m coverage run -m pytest test/unit --junitxml=test-reports/unit-results.xml'
-                            sh 'python3 -m coverage xml -o coverage.xml'
                         }
                     }
                     post {
                         always {
                             junit 'test-reports/unit-results.xml'
+                            stash includes: '.coverage', name: 'coverage-data'
+                            cleanWs()
+                        }
+                    }
+                }
+
+                stage('Coverage') {
+                    agent any
+                    steps {
+                        unstash 'source-code'
+                        unstash 'coverage-data'
+                        echo "=== GENERANDO REPORTE DE COBERTURA EN ETAPA INDEPENDIENTE ==="
+                        catchError(buildResult: 'SUCCESS', stageResult: 'FAILURE') {
+                            sh 'python3 -m coverage xml -o coverage.xml'
+                        }
+                    }
+                    post {
+                        always {
                             recordCoverage(tools: [[parser: 'COBERTURA', pattern: 'coverage.xml']])
-                            // Limpieza del nodo tras la ejecución
                             cleanWs()
                         }
                     }
@@ -48,9 +60,6 @@ pipeline {
                     steps {
                         unstash 'source-code'
                         echo "=== EJECUTANDO PRUEBAS DE INTEGRACIÓN EN PARALELO ==="
-                        sh "whoami && hostname && echo \${WORKSPACE}"
-                        
-                        sh 'pip3 install -r requirements.txt'
                         catchError(buildResult: 'SUCCESS', stageResult: 'FAILURE') {
                             sh './run_rest.sh'
                         }
@@ -68,9 +77,6 @@ pipeline {
                     steps {
                         unstash 'source-code'
                         echo "=== ANALIZANDO CÓDIGO (FLAKE8 Y BANDIT) ==="
-                        sh "whoami && hostname && echo \${WORKSPACE}"
-                        
-                        sh 'pip3 install flake8 bandit'
                         catchError(buildResult: 'SUCCESS', stageResult: 'FAILURE') {
                             sh 'python3 -m flake8 app/ --format=default > flake8_report.txt || true'
                             sh 'python3 -m bandit -r app/ -f custom --msg-template "{abspath}:{line}:1: {severity}: {test_id}: {msg}" -o bandit_report.txt || true'
@@ -98,7 +104,6 @@ pipeline {
             steps {
                 unstash 'source-code'
                 echo "=== PRUEBAS DE CARGA JMETER (BOTELLA DE CUELLO / FINAL) ==="
-                sh "whoami && hostname && echo \${WORKSPACE}"
                 sh './run_performance.sh'
             }
             post {

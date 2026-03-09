@@ -11,10 +11,10 @@ pipeline {
         
         stage('Unit') {
             steps {
-                echo "=== EJECUTANDO PRUEBAS UNITARIAS ==="
-                sh 'pip3 install -r requirements.txt'
+                echo "=== EJECUTANDO PRUEBAS UNITARIAS Y RECOGIENDO COBERTURA ==="
                 catchError(buildResult: 'SUCCESS', stageResult: 'FAILURE') {
-                    sh 'python3 -m pytest test/unit --junitxml=test-reports/unit-results.xml'
+                    // Combinamos ejecución de tests y recolección de cobertura para evitar duplicidad
+                    sh 'python3 -m coverage run -m pytest test/unit --junitxml=test-reports/unit-results.xml'
                 }
             }
             post {
@@ -41,7 +41,6 @@ pipeline {
         stage('Static') {
             steps {
                 echo "=== OBTENIENDO MÉTRICAS DE CÓDIGO ESTÁTICO (FLAKE8) ==="
-                sh 'pip3 install flake8'
                 catchError(buildResult: 'SUCCESS', stageResult: 'FAILURE') {
                     sh 'python3 -m flake8 app/ --format=default > flake8_report.txt || true'
                 }
@@ -59,7 +58,6 @@ pipeline {
         stage('Security Test') {
             steps {
                 echo "=== OBTENIENDO MÉTRICAS DE SEGURIDAD (BANDIT) ==="
-                sh 'pip3 install bandit'
                 catchError(buildResult: 'SUCCESS', stageResult: 'FAILURE') {
                     sh 'python3 -m bandit -r app/ -f custom --msg-template "{abspath}:{line}:1: {severity}: {test_id}: {msg}" -o bandit_report.txt || true'
                 }
@@ -76,10 +74,9 @@ pipeline {
         
         stage('Coverage') {
             steps {
-                echo "=== OBTENIENDO MÉTRICAS DE COBERTURA ==="
-                sh 'pip3 install coverage'
+                echo "=== GENERANDO REPORTE DE COBERTURA ==="
                 catchError(buildResult: 'SUCCESS', stageResult: 'FAILURE') {
-                    sh 'python3 -m coverage run -m pytest test/unit'
+                    // Solo generamos el XML a partir de los datos ya recogidos en la etapa Unit
                     sh 'python3 -m coverage xml -o coverage.xml'
                 }
             }
